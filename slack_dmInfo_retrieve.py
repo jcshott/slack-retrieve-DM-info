@@ -5,44 +5,46 @@ def get_dm_info(output_file, start_timestamp=0):
 	"""appends to specified output_file the messages in a DM channel.
 	takes in output_file name and beginning timestamp. returns nothing, 
 	appends to specified file the following info: 
-	MM-DD-YY, time of message: user_name of sender - message text
+	MM-DD-YY, time of message: user name of sender - message text
 	"""
 
 	with open(output_file, 'a') as f:
+		with open("ts_log.txt", 'a') as l:
 
-		query_params = {'token': mytoken,
-						'channel': "D076VAAKY",
-						# 'oldest': str(start_timestamp)
-					       }
-		endpoint = 'https://slack.com/api/im.history'
-		response = requests.get(endpoint, params=query_params).json()
-
-		users_seen = {}
-		msgs = []
-		latest_timestamp = 0
-
-		for msg in response["messages"]:
-			user_id = msg["user"]
-			if user_id in users_seen:
-				user_name = users_seen.get(user_id)
-			else:
-				user_name = get_user_name(user_id)
-				users_seen[user_id] = user_name
-
-			day_sent = datetime.datetime.fromtimestamp(float(msg["ts"]))
-		
-			msgs.append([day_sent.strftime("%a. %m-%d-%Y, %I:%M %p"), user_name, msg["text"]])
+			query_params = {'token': mytoken,
+							'channel': channel,
+							'oldest': str(start_timestamp)
+						       }
 			
-			if msg["ts"] > latest_timestamp:
-				latest_timestamp = msg["ts"]
-		print "users_seen: ", user_dict
-		sorted_msgs = sorted(msgs)
+			endpoint = 'https://slack.com/api/im.history'
+			response = requests.get(endpoint, params=query_params).json()
+			
+			users_seen = {}
+			msgs = []
+			latest_timestamp = 0
 
-		for x in sorted_msgs:
-			f.write(x[0].encode("utf-8") + ": " + x[1].encode("utf-8") + " - " + x[2].encode("utf-8") + "\n")
+			for msg in response["messages"]:
+				user_id = msg["user"]
+				if user_id in users_seen:
+					user_name = users_seen.get(user_id)
+				else:
+					user_name = get_user_name(user_id)
+					users_seen[user_id] = user_name
 
-		f.write("last timestmp: %r" % latest_timestamp)
-	
+				day_sent = datetime.datetime.fromtimestamp(float(msg["ts"]))
+			
+				msgs.append([day_sent.strftime("%a. %m-%d-%Y, %I:%M %p"), user_name, msg["text"]])
+				
+				if msg["ts"] > latest_timestamp:
+					latest_timestamp = msg["ts"]
+			print "users_seen: ", users_seen
+			sorted_msgs = sorted(msgs)
+
+			for x in sorted_msgs:
+				f.write(x[0].encode("utf-8") + ": " + x[1].encode("utf-8") + " - " + x[2].encode("utf-8") + "\n")
+
+			l.write(latest_timestamp + '\n')
+		l.close()
 	f.close()
 
 def get_user_name(user_id):
@@ -67,16 +69,24 @@ def get_user_name(user_id):
 if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(description="Retrieve DM info from Slack")
-	parser.parse_args()
-	parser.add_argument('-o', '--o', action='store_const', dest='output_file', help='define output_file')
-	# if len(sys.argv) == 2:
-	# 	try:
-	# 		output_file = sys.argv[1]
-	# 		start_timestamp = sys.argv[2]	
-	# 	except:
-	# 		print "If you are providing both a starting timestamp and output file name, please provide the filename first and timestamp second"
+	parser.add_argument('-o', '--output', action='store', dest="output_file", help='define output_file')
+	parser.add_argument('-t', '--timestamp', action='store', dest='last_timestamp', help="define timestamp from which start download (exclusive), if known")
+
+	parse_results = parser.parse_args()
+	
+	if parse_results.output_file:
+		output_file = parse_results.output_file
+	else:
+		output_file = "test2.txt" #change this to read config file
+	
+	if parse_results.last_timestamp:
+		last_timestamp = parse_results.last_timestamp
+	else:
+		last_timestamp = 0 #change this to read from log file
+
 	mytoken = os.environ.get("SLACK_TOKEN")
-	get_dm_info('test.txt')
+	channel = "D076VAAKY" #need to change this to read from config file
+	get_dm_info(output_file)
 
 	#if timestamp parameter given - use that (argparse library)
 	#if not - check if there's a log file and read last line (in a function above)
