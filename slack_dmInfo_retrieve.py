@@ -1,20 +1,19 @@
-import requests, datetime, time, sys, os, argparse
-#make the timestamps go into a log file and then have the program read the last entry to get next block of messages to download. if nothing in log file, then have it default to getting all history
+import requests, datetime, time, sys, os, argparse, ConfigParser
 
-def get_dm_info(output_file, start_timestamp=0):
-	"""appends to specified output_file the messages in a DM channel.
-	takes in output_file name and beginning timestamp. returns nothing, 
-	appends to specified file the following info: 
+def get_dm_info():
+	"""appends to specified output_file the messages in a specified DM channel in the following format:
 	MM-DD-YY, time of message: user name of sender - message text
+
+	necessary variables are set via config file or from command line - including: output file handle; DM channel to download; last timestamp from which to read forward (not including message at that timestamp); log file handle to record timestamp from last time program was run (so you can run program and only get new messages); Slack API Token (REQUIRED to be in config file)
 	"""
 
 	with open(output_file, 'a') as f:
-		with open("ts_log.txt", 'a') as l:
-
+		with open(log_file, 'a') as l:
+	
 			query_params = {'token': mytoken,
 							'channel': channel,
 							'oldest': str(start_timestamp)
-						       }
+						    }
 			
 			endpoint = 'https://slack.com/api/im.history'
 			response = requests.get(endpoint, params=query_params).json()
@@ -37,7 +36,7 @@ def get_dm_info(output_file, start_timestamp=0):
 				
 				if msg["ts"] > latest_timestamp:
 					latest_timestamp = msg["ts"]
-			print "users_seen: ", users_seen
+
 			sorted_msgs = sorted(msgs)
 
 			for x in sorted_msgs:
@@ -68,30 +67,68 @@ def get_user_name(user_id):
 
 if __name__ == '__main__':
 
+	"""
+	You can pass in an output file handle for message text; config file to read from (required); 
+	timestamp from which to read forward and a log file to indicate last time that was read (so as to only capture new meessages when running program)
+	"""
+
 	parser = argparse.ArgumentParser(description="Retrieve DM info from Slack")
 	parser.add_argument('-o', '--output', action='store', dest="output_file", help='define output_file')
 	parser.add_argument('-t', '--timestamp', action='store', dest='last_timestamp', help="define timestamp from which start download (exclusive), if known")
-
+	parser.add_argument('-c', '--config', action='store', dest='config_file_handle', help='indicate config file handle to read from for settings', required=True)
+	parser.add_argument('-l', '--log', action='store', dest='log_file_handle', help='indicate log file handle that will store timestamp of the last message read after running program')
 	parse_results = parser.parse_args()
-	
-	if parse_results.output_file:
+
+	#open and read the config file - handle must be passed in thru cmd line -c or --config. 
+	config_handle = parse_results.config_file_handle
+	config = ConfigParser.ConfigParser()
+	config.read(config_handle)
+
+	### OUTPUT FILE SPECIFICATIONS ###
+	if parse_results.output_file: #check if user gave output file on cmd line
 		output_file = parse_results.output_file
-	else:
-		output_file = "test2.txt" #change this to read config file
+	try:
+		output_file = config.get('SlackParams', 'output_file') #look in config file, if not there, create an output file
+	except ConfigParser.NoOptionError:
+		output_file = "output.txt"
 	
-	if parse_results.last_timestamp:
-		last_timestamp = parse_results.last_timestamp
+	### TIMESTAMP FROM WHICH TO READ MESSAGES AFTER SPECIFICATION ###
+	if parse_results.last_timestamp: #if timestamp given on cmd line, use that
+		start_timestamp = parse_results.last_timestamp
+	elif parse_results.log_file_handle: #if given log filehandle on cmd line, read from that
+		log_handle = parse_results.log_file_handle
+		with open(log_handle, 'a+') as log: #opens file for appending and reading, creates file if doesn't exist
+			log_data = log.readlines()
+			if not log_data: #if you don't have any timestamp data, set to 0 to get all history
+				start_timestamp = 0
+			else:
+				start_timestamp = log_data[-1]
+		log.closed
 	else:
-		last_timestamp = 0 #change this to read from log file
-
-	mytoken = os.environ.get("SLACK_TOKEN")
-	channel = "D076VAAKY" #need to change this to read from config file
-	get_dm_info(output_file)
-
-	#if timestamp parameter given - use that (argparse library)
-	#if not - check if there's a log file and read last line (in a function above)
-	#if no log file or parameter given, get everything
-
-	#config file - put the channel, api key, output file name
-	#http://stackoverflow.com/questions/8225954/python-configuration-file-any-file-format-recommendation-ini-format-still-appr
+		try:
+			log_handle = config.get('SlackParams', 'log_file') #try to get log file handle from config.
+			with open(log_handle, 'a+') as log:
+				log_data = log.readlines()
+				if not log_data: #if you don't have any timestamp data, set to 0 to get all history
+					start_timestamp = 0
+				else:
+					start_timestamp = log_data[-1]
+			log.closed
+		except ConfigParser.NoOptionError:
+			start_timestamp = 0 #if neither cmd line or log file given, all messages will be downloaded
 	
+
+	### TIMESTAMP LOG FILE SPECIFICATIONS ###
+	if parse_results.log_file_handle:
+		log_file = parse_results.log_file_handle #read in the given log file from cmd line
+	else:
+		try:
+			log_file = config.get('SlackParams', 'ts_log_file') #if not on cmd line -> check the config file
+		except ConfigParser.NoOptionError:
+			log_file = "timestamp_log.txt" #if none given, create log.txt to store timestamps
+	
+	### SPECS THAT MUST BE SET IN CONFIG FILE ###
+	mytoken = config.get('SlackParams', 'slack_token')
+	channel = config.get('SlackParams', 'channel')
+
+	get_dm_info()
