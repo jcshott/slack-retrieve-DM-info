@@ -2,7 +2,7 @@ Slack - Direct Message Retrieval
 ====================================
 Python script to utilize Slack's API to retrieve your direct message history with a user and output the conversation to a txt file in the following format:
 
-DAY DATE TIME: User_name - Message text
+DAY DATE, TIME: User_name - Message text
 
 Example:
 
