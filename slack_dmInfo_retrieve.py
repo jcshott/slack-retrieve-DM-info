@@ -87,10 +87,11 @@ if __name__ == '__main__':
 	### OUTPUT FILE SPECIFICATIONS ###
 	if parse_results.output_file: #check if user gave output file on cmd line
 		output_file = parse_results.output_file
-	try:
-		output_file = config.get('SlackParams', 'output_file') #look in config file, if not there, create an output file
-	except ConfigParser.NoOptionError:
-		output_file = "output.txt"
+	else:
+		try:
+			output_file = config.get('SlackParams', 'output_file') #look in config file, if not there, create an output file
+		except ConfigParser.NoOptionError:
+			output_file = "output.txt"
 	
 	### TIMESTAMP FROM WHICH TO READ MESSAGES AFTER SPECIFICATION ###
 	if parse_results.last_timestamp: #if timestamp given on cmd line, use that
