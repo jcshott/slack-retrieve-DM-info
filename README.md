@@ -7,6 +7,7 @@ DAY DATE, TIME: User_name - Message text
 Example:
 
 >Wed. 10-21-2015, 12:55 PM: Corey Shott - Thanks for the great suggestion. Isn't coding fun?!?
+>Wed. 10-21-2015, 12:57 PM: Joe Schmo - You are welcome. Yes! :simple_smile:
 
 This program is configured to keep track of the timestamp of the last message retrieved so if you run this on a regular basis, you can retrieve only new messages and have them appended to the same file.
 
@@ -33,15 +34,17 @@ ____
 
 ## Set-Up ##
 
-**Create <kbd>config.ini</kbd> File**
+**Create Config File**
 This should store the information needed for the program to call the API and output correct information to a file.  Format the file as follows:
+
+<kbd>config.ini</kbd>
 
 ```
 [SlackParams]
 channel = DXXXXXX (channel id) 
 slack_token = YOUR TOKEN HERE 
 log_file = FILE NAME OF WHERE YOU WANT TIMESTAMP INFO LOGGED (i.e. log.txt)
-output_file = FILE NAME OF WHERE YOU WANT TIMESTAMP INFO LOGGED (i.e. output.txt)
+output_file = FILE NAME OF WHERE YOU WANT MESSAGE INFO RECORDED (i.e. output.txt)
 ```
 The only *required* information in the config file is the **channel** and the **slack_token**.  The other items can be handled on command line or, if not given in either location, default <kbd>log.txt</kbd> and <kbd>output.txt</kbd> files will be created in first run of program.
 
