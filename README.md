@@ -82,3 +82,5 @@ $ python slack_dmInfo_retrieve.py -c config.ini -t 1445457322.000006
 ```
 
 <b>Note:</b> For the optional command line arguments, if you specify via command line, those specs will override specs in your config file.
+
+By default, the API response only returns the first 100 messages, along with a boolean value of "has_more".  If that is set to "true", retrieval script will run, with updated starting timestamp, until all messages are retrieved and "has_more" returns False.

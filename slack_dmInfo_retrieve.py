@@ -1,6 +1,6 @@
 import requests, datetime, time, sys, os, argparse, ConfigParser
 
-def get_dm_info():
+def get_dm_info(start_timestamp):
 	"""appends to specified output_file the messages in a specified DM channel in the following format:
 	MM-DD-YY, time of message: user name of sender - message text
 
@@ -9,40 +9,47 @@ def get_dm_info():
 
 	with open(output_file, 'a') as f:
 		with open(log_file, 'a') as l:
-	
-			query_params = {'token': mytoken,
-							'channel': channel,
-							'oldest': str(start_timestamp)
-						    }
-			
-			endpoint = 'https://slack.com/api/im.history'
-			response = requests.get(endpoint, params=query_params).json()
-			
-			users_seen = {}
-			msgs = []
-			latest_timestamp = 0
-
-			for msg in response["messages"]:
-				user_id = msg["user"]
-				if user_id in users_seen:
-					user_name = users_seen.get(user_id)
-				else:
-					user_name = get_user_name(user_id)
-					users_seen[user_id] = user_name
-
-				day_sent = datetime.datetime.fromtimestamp(float(msg["ts"]))
-			
-				msgs.append([day_sent.strftime("%a. %m-%d-%Y, %I:%M %p"), user_name, msg["text"]])
+			run = True
+			while run:
+				query_params = {'token': mytoken,
+								'channel': channel,
+								'oldest': str(start_timestamp)
+							    }
 				
-				if msg["ts"] > latest_timestamp:
-					latest_timestamp = msg["ts"]
+				endpoint = 'https://slack.com/api/im.history'
+				response = requests.get(endpoint, params=query_params).json()
 
-			sorted_msgs = sorted(msgs)
+				users_seen = {}
+				msgs = []
+				latest_timestamp = 0
 
-			for x in sorted_msgs:
-				f.write(x[0].encode("utf-8") + ": " + x[1].encode("utf-8") + " - " + x[2].encode("utf-8") + "\n")
+				for msg in response["messages"]:
+					user_id = msg["user"]
+					if user_id in users_seen:
+						user_name = users_seen.get(user_id)
+					else:
+						user_name = get_user_name(user_id)
+						users_seen[user_id] = user_name
 
-			l.write(latest_timestamp + '\n')
+					day_sent = datetime.datetime.fromtimestamp(float(msg["ts"]))
+				
+					msgs.append([day_sent.strftime("%a. %m-%d-%Y, %I:%M %p"), user_name, msg["text"]])
+					
+					if msg["ts"] > latest_timestamp:
+						latest_timestamp = msg["ts"]
+
+				sorted_msgs = sorted(msgs)
+
+				for x in sorted_msgs:
+					f.write(x[0].encode("utf-8") + ": " + x[1].encode("utf-8") + " - " + x[2].encode("utf-8") + "\n")
+
+				l.write(str(latest_timestamp) + '\n')
+
+				if not response["has_more"]:
+					run = False
+				else:
+					start_timestamp = latest_timestamp
+
 		l.close()
 	f.close()
 
@@ -126,10 +133,10 @@ if __name__ == '__main__':
 		try:
 			log_file = config.get('SlackParams', 'ts_log_file') #if not on cmd line -> check the config file
 		except ConfigParser.NoOptionError:
-			log_file = "timestamp_log.txt" #if none given, create log.txt to store timestamps
+			log_file = "log.txt" #if none given, create log.txt to store timestamps
 	
 	### SPECS THAT MUST BE SET IN CONFIG FILE ###
 	mytoken = config.get('SlackParams', 'slack_token')
 	channel = config.get('SlackParams', 'channel')
 
-	get_dm_info()
+	get_dm_info(start_timestamp)
