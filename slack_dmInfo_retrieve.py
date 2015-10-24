@@ -69,7 +69,7 @@ def set_up():
 		set_up_info['log_file'] = log_file
 	else:
 		try:
-			log_file = config.get('SlackParams', 'ts_log_file') #if not on cmd line -> check the config file
+			log_file = config.get('SlackParams', 'log_file') #if not on cmd line -> check the config file
 			set_up_info['log_file'] = log_file
 		except ConfigParser.NoOptionError:
 			log_file = "log.txt" #if none given, create log.txt to store timestamps
