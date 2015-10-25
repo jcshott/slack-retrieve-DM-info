@@ -125,15 +125,15 @@ def get_dm_info():
 
 					day_sent = datetime.datetime.fromtimestamp(float(msg["ts"]))
 				
-					msgs.append([day_sent.strftime("%a. %m-%d-%Y, %I:%M %p"), user_name, msg["text"]])
+					msgs.append([msg["ts"], day_sent.strftime("%a. %m-%d-%Y, %I:%M %p"), user_name, msg["text"]])
 					
 					if msg["ts"] > latest_timestamp:
 						latest_timestamp = msg["ts"]
 
-				sorted_msgs = sorted(msgs) #msgs are returned in JSON, unsorted, so sort by date/time for output
+				sorted_msgs = sorted(msgs) #msgs are returned in JSON, unsorted, so sort by timestamp for output
 
 				for x in sorted_msgs:
-					f.write(x[0].encode("utf-8") + ": " + x[1].encode("utf-8") + " - " + x[2].encode("utf-8") + "\n")
+					f.write(x[1].encode("utf-8") + ": " + x[2].encode("utf-8") + " - " + x[3].encode("utf-8") + "\n")
 
 				l.write(str(latest_timestamp) + '\n')
 
