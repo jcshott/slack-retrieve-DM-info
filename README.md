@@ -7,6 +7,7 @@ DAY DATE, TIME: User_name - Message text
 Example:
 
 >Wed. 10-21-2015, 12:55 PM: Corey Shott - Thanks for the great suggestion. Isn't coding fun?!?
+
 >Wed. 10-21-2015, 12:57 PM: Joe Schmo - You are welcome. Yes! :simple_smile:
 
 This program is configured to keep track of the timestamp of the last message retrieved so if you run this on a regular basis, you can retrieve only new messages and have them appended to the same file.
