@@ -2,7 +2,7 @@ import requests, datetime, time, sys, os, argparse, ConfigParser
 
 def set_up():
 	"""
-	You can pass in an output file handle for message text; config file to read from (required); 
+	You can pass in an output file handle for message text; config file to read from (required);
 	timestamp from which to read forward and a log file to indicate last time that was read (so as to only capture new meessages when running program)
 	"""
 	set_up_info = {}
@@ -14,7 +14,7 @@ def set_up():
 	parser.add_argument('-l', '--log', action='store', dest='log_file_handle', help='indicate log file handle that will store timestamp of the last message read after running program')
 	parse_results = parser.parse_args()
 
-	#open and read the config file - handle must be passed in thru cmd line -c or --config. 
+	#open and read the config file - handle must be passed in thru cmd line -c or --config.
 	config_handle = parse_results.config_file_handle
 	config = ConfigParser.ConfigParser()
 	config.read(config_handle)
@@ -30,7 +30,7 @@ def set_up():
 		except ConfigParser.NoOptionError:
 			output_file = "output.txt"
 			set_up_info['output_file'] = output_file
-	
+
 	### TIMESTAMP FROM WHICH TO READ MESSAGES AFTER SPECIFICATION ###
 	if parse_results.last_timestamp: #if timestamp given on cmd line, use that
 		start_timestamp = parse_results.last_timestamp
@@ -61,7 +61,7 @@ def set_up():
 		except ConfigParser.NoOptionError:
 			start_timestamp = 0 #if neither cmd line or log file given, all messages will be downloaded
 			set_up_info['start_timestamp'] = start_timestamp
-	
+
 
 	### TIMESTAMP LOG FILE SPECIFICATIONS ###
 	if parse_results.log_file_handle:
@@ -74,7 +74,7 @@ def set_up():
 		except ConfigParser.NoOptionError:
 			log_file = "log.txt" #if none given, create log.txt to store timestamps
 			set_up_info['log_file'] = log_file
-	
+
 	### SPECS THAT MUST BE SET IN CONFIG FILE ###
 	mytoken = config.get('SlackParams', 'slack_token')
 	set_up_info['mytoken'] = mytoken
@@ -83,7 +83,44 @@ def set_up():
 
 	return set_up_info
 
-def get_dm_info():
+def write_file(messages, output_file, token):
+	users_seen = {}
+	with open(output_file, 'a') as f:
+		for msg in messages:
+			user_name = ""
+			user_id = msg.get("user")
+			if user_id:
+				if user_id in users_seen:
+					user_name = users_seen.get(user_id)
+				else:
+					user_name = get_user_name(user_id, token)
+					users_seen[user_id] = user_name
+
+				day_sent = datetime.datetime.fromtimestamp(float(msg["ts"]))
+				f.write("{}: {} - {}\n".format(day_sent.strftime("%a. %m-%d-%Y, %I:%M %p").encode("utf-8"), user_name.encode("utf-8"), msg.get("text", "").encode("utf-8")))
+	f.close()
+
+
+def get_user_name(user_id, token):
+	"""Makes Slack API call to get name of a user with a given ID
+
+	takes in a Slack user ID as string, returns real_name. if no real_name is found in profile, returns "name" field. if no user found, return None"""
+
+	query_params = {'token': token,
+					'user': user_id
+					}
+	endpoint = 'https://slack.com/api/users.info'
+	response = requests.get(endpoint, params=query_params).json()
+	if response["ok"]:
+		try:
+		 	return response["user"]["profile"]["real_name"]
+		except IndexError:
+			return response["user"]["name"]
+	else:
+		return None
+
+
+def get_channel_history():
 	"""appends to specified output_file the messages in a specified DM channel in the following format:
 	MM-DD-YY, time of message: user name of sender - message text
 
@@ -96,74 +133,34 @@ def get_dm_info():
 	start_timestamp = var_info['start_timestamp']
 	mytoken = var_info['mytoken']
 	channel = var_info['channel']
+	cursor = None
+	msgs = []
+	#account for more than default 100 mgs retrieval. if api call returns that there are no more msgs. this becomes False and loop breaks
+	run = True
+	while run:
+		query_params = {'token': mytoken, 'channel': channel, 'limit': 200}
+		if start_timestamp:
+			query_params['oldest'] = str(start_timestamp)
+		if cursor:
+			query_params['cursor'] = cursor
+		endpoint = 'https://slack.com/api/conversations.history'
+		response = requests.get(endpoint, params=query_params).json()
 
-	with open(output_file, 'a') as f:
-		with open(log_file, 'a') as l:
-			#account for more than default 100 mgs retrieval. if api call returns that there are no more msgs. this becomes False and loop breaks
-			run = True 
-			
-			while run:
-				query_params = {'token': mytoken,
-								'channel': channel,
-								'oldest': str(start_timestamp)
-							    }
-				
-				endpoint = 'https://slack.com/api/im.history'
-				response = requests.get(endpoint, params=query_params).json()
+		msgs.extend(response.get("messages"))
+		if not response["has_more"]:
+			run = False
+		else:
+			start_timestamp = None
+			cursor = response.get('response_metadata').get('next_cursor')
+	with open(log_file, 'a') as l:
+		sorted_messages = sorted(msgs, key = lambda i: (i['ts']))
+		last_ts = sorted_messages[-1].get('ts')
+		l.write(str(last_ts) + '\n')
+	l.close()
 
-				users_seen = {}
-				msgs = []
-				latest_timestamp = 0
+	write_file(sorted_messages, output_file, mytoken)
+	print("convo written to {}".format(output_file))
 
-				for msg in response["messages"]:
-					user_id = msg["user"]
-					if user_id in users_seen:
-						user_name = users_seen.get(user_id)
-					else:
-						user_name = get_user_name(user_id, mytoken)
-						users_seen[user_id] = user_name
-
-					day_sent = datetime.datetime.fromtimestamp(float(msg["ts"]))
-				
-					msgs.append([msg["ts"], day_sent.strftime("%a. %m-%d-%Y, %I:%M %p"), user_name, msg["text"]])
-					
-					if msg["ts"] > latest_timestamp:
-						latest_timestamp = msg["ts"]
-
-				sorted_msgs = sorted(msgs) #msgs are returned in JSON, unsorted, so sort by timestamp for output
-
-				for x in sorted_msgs:
-					f.write(x[1].encode("utf-8") + ": " + x[2].encode("utf-8") + " - " + x[3].encode("utf-8") + "\n")
-
-				l.write(str(latest_timestamp) + '\n')
-
-				if not response["has_more"]:
-					run = False
-				else:
-					start_timestamp = latest_timestamp
-
-		l.close()
-	f.close()
-
-def get_user_name(user_id, mytoken):
-	"""Makes Slack API call to get name of a user with a given ID
-
-	takes in a Slack user ID as string, returns real_name. if no real_name is found in profile, returns "name" field. if no user found, return None"""
-
-	query_params = {'token': mytoken,
-					'user': user_id
-					}
-	endpoint = 'https://slack.com/api/users.info'
-	response = requests.get(endpoint, params=query_params).json()
-
-	if response["ok"]:
-		try:
-		 	return response["user"]["profile"]["real_name"]
-		except IndexError:
-			return response["user"]["name"]
-	else:
-		return None
 
 if __name__ == '__main__':
-
-	get_dm_info()
+	get_channel_history()

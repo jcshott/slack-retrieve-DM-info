@@ -17,19 +17,39 @@ ____
 ## Required Info ##
 
 * <b> Python 2.7.1</b>
-* <b>Slack API Token</b>:  Obtain a token from [Slack's Web API Site] (https://api.slack.com/web).
-	+ Scroll to the bottom of page and select "Issue Token".  If you are part of multiple teams be sure the correct team for which you will be using this program is listed.
-* <b>Channel ID:</b> Identify the direct message (DM) Channel Id (ex. D1234567890) for which you want to use this program.
+* <b> [requests](https://pypi.org/project/requests/) </b>
 
-####Getting Direct Message (DM) Channel ID
+* <b>Slack API Token</b>:  Obtain a token from [Slack's API Site](https://api.slack.com/apps).
+	+ You'll need to create a new App and add it to your Workspace.
+	+ Under "Add features and functionality" -> "Permissions" -> "Scopes": Give the app permission to Access the following:
+	```
+	Access user’s public channels
+	channels:history
+
+	Access information about user’s public channels
+	channels:read
+
+	Access content in user’s private channels
+	groups:history
+
+	Access your workspace’s profile information
+	users:read
+	```
+	+ make sure you do the Install your app in your workspace step (under Basic Information)
+	+ use `OAuth Access Token` (found in `OAuth & Permissions` section where you set up Scope) as your `slack_token` in config
+* <b>Channel ID:</b> Identify the Channel Id (ex. D1234567890) for which you want to use this program.
+
+####Getting Channel ID
 
 I haven't found an elegant solution to finding the channel ID.  Here's how I did it, would appreciate feedback if you know a better way:
 
-1. Sign-in to your Slack Team in a web browser (ex. TEAMNAME.slack.com/home)
-2. Select "Team Directory" (or go directly to TEAMNAME.slack.com/team)
-3. Find person for whom you want to retrieve DM history 
-4. On the right side of the row will be a menu button - click it. If there's a DM history, an option for "Open Message Archive" will appear.  Select that option.
-5. A new page will open.  In the web address will be a string of numbers and letters - starting with "D".  That is the channel id.
+1. Sign-in to your Slack Workspace in a web browser (ex. WORKSPACE.slack.com)
+2. Find channel you want to retrieve history
+3. A new page will open.  In the web address will be a url, you want the last part. If the url is:
+```
+https://app.slack.com/client/T2VU4K6EA/CF35KMD9Q
+```
+you want to use `CF35KMD9Q` as the channel
 
 ____
 
@@ -42,8 +62,8 @@ This should store the information needed for the program to call the API and out
 
 ```
 [SlackParams]
-channel = DXXXXXX (channel id) 
-slack_token = YOUR TOKEN HERE 
+channel = DXXXXXX (channel id)
+slack_token = YOUR TOKEN HERE
 log_file = FILE NAME OF WHERE YOU WANT TIMESTAMP INFO LOGGED (i.e. log.txt)
 output_file = FILE NAME OF WHERE YOU WANT MESSAGE INFO RECORDED (i.e. output.txt)
 ```
@@ -60,7 +80,7 @@ $ git clone https://github.com/jcshott/slack-retrieve-DM-info.git
 If you have set up the <kbd>config.ini</kbd> file as outlined above, you can just run the program, specifying config file name on command line as such:
 
 ```sh
-$ python slack_dmInfo_retrieve.py -c config.ini (or whatever name you gave it, as long as its a *.ini file) `
+$ python slack_channel_history_retrieve.py -c config.ini (or whatever name you gave it, as long as its a *.ini file) `
 ```
 
 If you did not set a log file name and/or output file name in the config file. you can do so with the following command line arguments:
@@ -68,13 +88,13 @@ If you did not set a log file name and/or output file name in the config file. y
 ####Output filename specification
 
 ```sh
-$ python slack_dmInfo_retrieve.py -c config.ini -o output.txt
+$ python slack_channel_history_retrieve.py -c config.ini -o output.txt
 ```
 
 ####Log filename specification
 
 ```sh
-$ python slack_dmInfo_retrieve.py -c config.ini -l log.txt
+$ python slack_channel_history_retrieve.py -c config.ini -l log.txt
 ```
 
 The log file will capture the last timestamp of the last message downloaded and outputted to file.  If you plan to run the file more than once (like 1x/day or week), the program will read the last timestamp logged in the log file and only retrieve messages after that timestamp.  Thus, it is in your best interest to keep the log file the same name after creation - either by specifying it in config file, on command line or keeping it the default.
@@ -87,9 +107,9 @@ Lastly, the timestamp from which you want to retrieve messages after can be spec
 ####Timestamp specification example
 
 ```sh
-$ python slack_dmInfo_retrieve.py -c config.ini -t 1445457322.000006
+$ python slack_channel_history_retrieve.py -c config.ini -t 1445457322.000006
 ```
 
 <b>Note:</b> For the optional command line arguments, if you specify via command line, those specs will override specs in your config file.
 
-By default, the API response only returns the first 100 messages, along with a boolean value of "has_more".  If that is set to "true", retrieval script will run, with updated starting timestamp, until all messages are retrieved and "has_more" returns False.
+By default, the API response only returns the first 200 messages, along with a boolean value of "has_more".  If that is set to "true", retrieval script will run, with updated starting timestamp, until all messages are retrieved and "has_more" returns False.
